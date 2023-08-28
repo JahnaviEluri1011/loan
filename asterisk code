@@ -1,0 +1,141 @@
+;/etc/asterisk/extensions.conf
+[ivr]
+
+exten=>s,1,Answer
+same => n,Playback(welcome)
+same => n,Background(enter-your-id)
+same => n,WaitExten()
+
+exten => _X.,1,NoOp(Received input: ${EXTEN})
+same => n,Set(USER_ID=${EXTEN})
+
+; Check if the user is already registered
+same => n,Set(DB_RESULT=${DB_EXISTS(user/${USER_ID}/name)})
+same => n,GotoIf($[${DB_RESULT} = 1]?user_already_registered)
+
+; If user is not registered, proceed with registration
+ same => n,Playback(enter-your-name)
+ same => n,Read(USER_NAME,,100)
+ same => n,Playback(enter-your-date-of-birth)
+ same => n,Read(USER_DOB,,100)
+ same => n,Playback(enter-your-gender)
+ same => n,Read(USER_GENDER,,100)
+ same => n,Playback(enter-your-status)
+ same => n,Read(USER_status,,100)
+
+ same => n,Set(DB(user/${USER_ID}/name)=${USER_NAME})
+ same => n,Set(DB(user/${USER_ID}/dob)=${USER_EMAIL})
+ same => n,Set(DB(user/${USER_ID}/gender)=${USER_NAME})
+ same => n,Set(DB(user/${USER_ID}/status)=${USER_EMAIL})
+
+ same => n,Playback(thank-you-for-registering)
+
+; User is already registered
+ same => n(user_already_registered),Playback(user-already-registered)
+
+;read out the options 1.credit education 2. credit score 3. loan application 4. loan disbursement 5. repayment schedule
+
+exten => options_menu,1,Playback(welcome-to-options-menu) 
+ same => n,Background(digits/press-1-for-credit-education-2-for-credit-score-3-for-loan-application-4-for-loan-disbursement-5-for-repayment-schedule)
+ same => n,WaitExten()
+
+; User presses a digit to select an option form 1 to 5(inclusive) all other numbers will be ignored
+
+exten => _[1-5],1,NoOp(User pressed: ${EXTEN})
+
+; Depending on the pressed digit, handle different options
+   same => n,GotoIf($["${EXTEN}" = "1"]?credit_education)
+   same => n,GotoIf($["${EXTEN}" = "2"]?credit_score)
+   same => n,GotoIf($["${EXTEN}" = "3"]?loan_application)
+   same => n,GotoIf($["${EXTEN}" = "3"]?loan_disbursement)
+   same => n,GotoIf($["${EXTEN}" = "3"]?repayment_schedule)
+
+; If user presses an invalid digit
+   same => n,Playback(sorry-invalid-option)
+   same => n,Goto(options_menu)
+
+; 1.CREDIT EDUCATION
+exten => credit_education,1,Playback(you-selected-credit_education)
+same => n,Dial(SIP/your_toll_number)
+same => n,Playback(video-is-being-shown/explaining-courses)
+same => n,Hangup()
+
+;2. CREDIT SCORE
+exten => credit_score,1,Playback(you-selected-credit_score)
+same => n,AGI(get_credit_score.py,${USER_ID})
+ same => n,GotoIf($["${CREDIT_SCORE}" <= "600"]?low_credit)
+ same => n,GotoIf($["${CREDIT_SCORE}" <= "750"]?medium_credit)
+ same => n,Goto(high_credit)
+
+exten => low_credit,1,Playback(your-credit-score-is-low)
+ same => n,Playback(please-consider-focusing-on-improving-your-credit-score-by-paying-bills-on-time-and-reducing-debt)
+ same => n,Hangup()
+
+
+exten => medium_credit,1,Playback(your-credit-score-is-medium)
+ same => n,Playback(Continue-managing-your-finances-responsibly-to-maintain-or-improve-your-credit-score)
+ same => n,Hangup()
+
+
+exten => high_credit,1,Playback(your-credit-score-is-high)
+ same => n,Playback(Congratulations-on-your-excellent-credit-score-Keep-up-the-good-work)
+ same => n,Hangup()
+
+; 3. loan application
+
+exten => loan_application,1,Playback(you-selected-loan-application)
+same => n,Playback(welcome-to-loan-application)
+ same => n,Background(digits/press-1-to-apply-for-loan)
+ same => n,WaitExten()
+
+; User presses a digit to apply for a loan
+exten => 1,1,NoOp(User pressed: ${EXTEN})
+ same => n,Playback(please-hold-for-loan-officer)
+ same => n,Dial(SIP/loan_officer_extension,30) 
+
+; Dial the loan officer's extension for 30 seconds
+; If loan officer does not answer or line is busy
+exten => 1,n,Playback(loan-officer-unavailable)
+ same => n,Hangup()
+
+; For other options or invalid input
+exten => _[2-9],1,Playback(sorry-invalid-option)
+ same => n,Hangup()
+ same => n,Playback(press-1-to-apply-for-loan)
+ same => n,WaitExten()
+
+; End of call
+exten => h,1,Hangup()
+
+
+
+;4. loan disbursement 
+
+exten => loan_disbursement,1,Playback(you-selected-loan-disbursement)
+ same => n,AGI(get_loan_status.py,${USER_ID})
+
+ same => n,GotoIf($["${LOAN_STATUS}" = "Approved"]?loan_approved)
+ same => n,GotoIf($["${LOAN_STATUS}" = "Pending"]?loan_pending)
+ same => n,Goto(loan_not_approved)
+
+exten => loan_approved,1,Playback(your-loan-is-approved)
+ same => n,Hangup()
+
+exten => loan_pending,1,Playback(your-loan-is-pending)
+ same => n,Hangup()
+
+exten => loan_not_approved,1,Playback(your-loan-is-not-approved)
+ same => n,Hangup()
+
+; 5. Repayment schedule
+exten => repayment_scedule,1,Playback(you-selected-repayment_schedule)
+same => n,AGI(get_next_repayment_date.py,${USER_ID})
+
+ same => n,GotoIf($["${NEXT_REPAYMENT_DATE}" != ""]?upcoming_repayment)
+ same => n,Playback(no-upcoming-repayments)
+ same => n,Hangup()
+
+exten => upcoming_repayment,1,Playback(upcoming-repayment-reminder)
+ same => n,Playback(your-next-repayment-is)
+ same => n,SayUnixTime(${NEXT_REPAYMENT_DATE},"ABdY 'at' HMp")
+ same => n,Hangup()
