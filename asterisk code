@@ -20,13 +20,11 @@ same => n,GotoIf($[${DB_RESULT} = 1]?user_already_registered)
  same => n,Read(USER_DOB,,100)
  same => n,Playback(enter-your-gender)
  same => n,Read(USER_GENDER,,100)
- same => n,Playback(enter-your-status)
- same => n,Read(USER_status,,100)
-
+ 
  same => n,Set(DB(user/${USER_ID}/name)=${USER_NAME})
  same => n,Set(DB(user/${USER_ID}/dob)=${USER_EMAIL})
  same => n,Set(DB(user/${USER_ID}/gender)=${USER_NAME})
- same => n,Set(DB(user/${USER_ID}/status)=${USER_EMAIL})
+ 
 
  same => n,Playback(thank-you-for-registering)
 
