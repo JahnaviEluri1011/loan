@@ -19,7 +19,7 @@ row_num = 2
 starting_count = 1
 
 random.shuffle(subverticals) #shuffle the subverticles
-previous_subvertical = None
+
 
 for count in count_array:
     for _ in range(count):
